@@ -5,38 +5,35 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name="users")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class User {
+public class Event {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String name;
-    private String email;
-    private String phone;
-    private String password;
+    private String description;
     private String image;
 
-    @Column(name = "active", columnDefinition = "Boolean DEFAULT 0")
-    private boolean active;
+    @ManyToOne
+    private User organizer;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    private int maxMembers;
+    private String status;
+    private String linkGroup;
+    private double total;
+    private LocalDateTime eventDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @ManyToOne
-    private Role role;
-
-    @OneToMany(mappedBy = "organizer")
-    private List<Event> events;
+    @OneToMany(mappedBy = "event")
+    private List<EventBooking> eventBookings;
 }

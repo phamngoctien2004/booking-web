@@ -39,10 +39,12 @@ public class AuthService {
     private final RoleService roleService;
     private final EmailService emailService;
     private final TokenRepository tokenRepository;
-    public AuthService(UserService userService,
-                       RoleService roleService,
-                       TokenRepository tokenRepository,
-                       EmailService emailService){
+    public AuthService(
+            UserService userService,
+            RoleService roleService,
+            TokenRepository tokenRepository,
+            EmailService emailService
+    ){
         this.userService = userService;
         this.roleService = roleService;
         this.tokenRepository = tokenRepository;
@@ -108,7 +110,7 @@ public class AuthService {
 
         return ApiResponse.builder()
                 .status("success")
-                .message("Đăng kí thành công")
+                .message("Đăng kí thành công, kiểm tra email để xác thực tài khoản")
                 .build();
     }
 
