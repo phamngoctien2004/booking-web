@@ -23,8 +23,8 @@ public class SecurityConfig {
     private final String[] WHITE_LIST = {
             "/v1/auth/login",
             "/v1/auth/register",
-            "/v1/auth/email",
-            "/v1/auth/reset"
+            "/v1/auth/verify",
+            "/v1/auth/reset-password"
     };
 
     @Bean

@@ -6,15 +6,16 @@ import com.datsan.caulong.dto.response.ApiResponse;
 import com.datsan.caulong.dto.response.LoginResponse;
 import com.datsan.caulong.exception.AppException;
 import com.datsan.caulong.exception.Error;
-import com.datsan.caulong.model.InvalidToken;
+import com.datsan.caulong.model.Token;
 import com.datsan.caulong.model.Role;
 import com.datsan.caulong.model.User;
-import com.datsan.caulong.repository.InvalidTokenRepository;
+import com.datsan.caulong.repository.TokenRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.mail.MessagingException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,14 +35,18 @@ public class AuthService {
 
     @Value("${jwt.expiration}")
     public int expiration;
-
     private final UserService userService;
     private final RoleService roleService;
-    private final InvalidTokenRepository invalidTokenRepository;
-    public AuthService(UserService userService, RoleService roleService, InvalidTokenRepository invalidTokenRepository){
+    private final EmailService emailService;
+    private final TokenRepository tokenRepository;
+    public AuthService(UserService userService,
+                       RoleService roleService,
+                       TokenRepository tokenRepository,
+                       EmailService emailService){
         this.userService = userService;
         this.roleService = roleService;
-        this.invalidTokenRepository = invalidTokenRepository;
+        this.tokenRepository = tokenRepository;
+        this.emailService = emailService;
     }
 
 
@@ -70,7 +75,7 @@ public class AuthService {
                 .build();
     }
 
-    public ApiResponse<?> register(RegisterRequest registerRequest){
+    public ApiResponse<?> register(RegisterRequest registerRequest) throws MessagingException {
         // kiểm tra email tồn tại
         Optional<User> user = userService.OFindByEmail(registerRequest.getEmail());
         if(user.isPresent()){
@@ -82,8 +87,25 @@ public class AuthService {
                 .password(new BCryptPasswordEncoder().encode(registerRequest.getPassword()))
                 .role(defaultRole)
                 .build();
-
         userService.save(newUser);
+
+//       Tạo UUUID xác thực email
+        String emailVerifyToken = UUID.randomUUID().toString();
+        Token token = new Token();
+        token.setId(emailVerifyToken);
+        token.setType("email");
+        token.setValid(true);
+        token.setEmail(newUser.getEmail());
+        tokenRepository.save(token);
+
+        String html = "<h3>Xin chào</h3>"
+                + "<p>Click vào <a href='http://localhost:8080/v1/auth/verify?email=" + newUser.getEmail()
+                + "&token=" + emailVerifyToken
+                + "'>liên kết này</a> để xác minh tài khoản.</p>";
+
+
+        emailService.sendEmail(newUser.getEmail(), html);
+
         return ApiResponse.builder()
                 .status("success")
                 .message("Đăng kí thành công")
@@ -92,9 +114,37 @@ public class AuthService {
 
     public void logout(String jwt){
         // lưu token vào blacklist
-        InvalidToken invalidToken = new InvalidToken();
-        invalidToken.setId(jwt);
-        invalidTokenRepository.save(invalidToken);
+        Token token = new Token();
+        token.setId(jwt);
+        token.setType("jwt");
+        token.setValid(false);
+        tokenRepository.save(token);
+    }
+    public void verifyEmail(String email, String tokenRequest){
+        Optional<Token> token = tokenRepository.findById(tokenRequest);
+
+        if(token.isEmpty() || !token.get().getEmail().equals(email)){
+            throw new AppException(Error.VERIFY_FAILED);
+        }
+
+        User user = userService.findByEmail(email);
+        user.setActive(true);
+        userService.save(user);
+
+        tokenRepository.delete(token.get());
+    }
+    public void resetPassword(String email) throws MessagingException {
+        User user = userService.findByEmail(email);
+        // tạo mật khẩu mới 6 kí tự
+        String newPassword = UUID.randomUUID().toString().substring(0,6);
+        user.setPassword(new BCryptPasswordEncoder().encode(newPassword));
+
+        userService.save(user);
+        String html = "<h3>Xin chào</h3>"
+                + "Mật khẩu mới của bạn là <b>"
+                + newPassword +
+                "</b> Vui lòng đăng nhập vào đổi mật khẩu để tránh rủi ro";
+        emailService.sendEmail(email,html);
     }
     public String generateJwt(User user){
         Instant now = Instant.now();
@@ -122,6 +172,6 @@ public class AuthService {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
     }
     public boolean isValidToken(String jwt){
-        return !invalidTokenRepository.existsById(jwt);
+        return !tokenRepository.existsById(jwt);
     }
 }

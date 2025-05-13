@@ -8,9 +8,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Data
-public class InvalidToken {
+public class Token {
     @Id
     private String id;
-
+    private String email;
+    private String type;
     private LocalDateTime logoutTime;
+    private boolean isValid;
 }

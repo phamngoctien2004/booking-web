@@ -40,4 +40,14 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.ok(response);
     }
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<?> handleRuntimeException(RuntimeException ex){
+        ApiResponse<?> response = ApiResponse.builder()
+                .message("Có lỗi xảy ra")
+                .status("error")
+                .data(ex.getMessage())
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
 }
